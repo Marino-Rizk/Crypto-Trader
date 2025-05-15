@@ -1,0 +1,167 @@
+﻿@{
+    ViewData["Title"] = "Home";
+}
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="list-group">
+                <h5 class="mb-3">Top 15 Coins</h5>
+                <a href="#" class="list-group-item list-group-item-action" data-id="bitcoin" role="button">Bitcoin (BTC)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="ethereum" role="button">Ethereum (ETH)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="tether" role="button">Tether (USDT)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="binancecoin" role="button">BNB (BNB)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="usd-coin" role="button">USD Coin (USDC)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="ripple" role="button">XRP (XRP)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="cardano" role="button">Cardano (ADA)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="dogecoin" role="button">Dogecoin (DOGE)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="polygon" role="button">Polygon (MATIC)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="solana" role="button">Solana (SOL)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="polkadot" role="button">Polkadot (DOT)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="litecoin" role="button">Litecoin (LTC)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="shiba-inu" role="button">Shiba Inu (SHIB)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="chainlink" role="button">Chainlink (LINK)</a>
+                <a href="#" class="list-group-item list-group-item-action" data-id="uniswap" role="button">Uniswap (UNI)</a>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="card mb-4">
+                <div class="card-body">
+
+                    <div class="d-flex align-items-center mb-3">
+                        <img src="https://assets.coingecko.com/coins/images/1/large/bitcoin.png" alt="Bitcoin" width="40" class="me-3" />
+                        <h4 class="mb-0">Bitcoin (BTC)</h4>
+                        <span id="priceChangeBadge" class="badge ms-3">-1.27%</span>
+                    </div>
+
+                    <h3>$96,254.24</h3>
+
+                    <div class="mb-3" style="width:900px">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+
+                    <div class="btn-group mb-3" role="group" aria-label="Chart Range">
+                        <button class="btn btn-outline-primary range-btn" data-range="1d">1D</button>
+                        <button class="btn btn-outline-primary range-btn" data-range="7d">1W</button>
+                        <button class="btn btn-outline-primary range-btn" data-range="30d">1M</button>
+                        <button class="btn btn-outline-primary range-btn" data-range="365d">1Y</button>
+                    </div>
+
+                    <div class="mb-2">Market Cap: <strong>$1.91T</strong></div>
+                    <div class="mb-2">Volume (24h): <strong>$17.28B</strong></div>
+                    <div class="mb-2">Circulating Supply: <strong>19.86M</strong></div>
+
+                    <form class="row g-2 mt-3">
+                        <div class="col-auto">
+                            <input type="number" class="form-control" placeholder="Amount" min="0.0001" step="0.0001" />
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-success">Buy</button>
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-danger">Sell</button>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    let priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Price',
+                data: [],
+                borderColor: '#f7931a',
+                backgroundColor: 'rgba(247,147,26,0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { x: { display: false } },
+            elements: { point: { radius: 0 } }
+        }
+    });
+
+    let currentCoin = "bitcoin";
+    let currentRange = "1d";
+
+    async function loadCoinData(coinId, range = "1d") {
+        currentCoin = coinId;
+        currentRange = range;
+
+        try {
+            const marketChartUrl = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${range}`;
+            const detailUrl = `https://api.coingecko.com/api/v3/coins/${coinId}?localization=false`;
+
+            const [chartRes, detailRes] = await Promise.all([
+                fetch(marketChartUrl),
+                fetch(detailUrl)
+            ]);
+
+            const chartData = await chartRes.json();
+            const detailData = await detailRes.json();
+            const coin = detailData.market_data;
+
+            const prices = chartData.prices.map(p => p[1]);
+            const labels = chartData.prices.map(p => {
+                const d = new Date(p[0]);
+                return range === "1d" ? d.toLocaleTimeString() : d.toLocaleDateString();
+            });
+
+            priceChart.data.labels = labels;
+            priceChart.data.datasets[0].data = prices;
+            priceChart.update();
+
+            document.querySelector("h4.mb-0").textContent = `${detailData.name} (${detailData.symbol.toUpperCase()})`;
+            document.querySelector("h3").textContent = `$${coin.current_price.usd.toLocaleString()}`;
+            document.querySelector("img").src = detailData.image.large;
+
+            const change24h = coin.price_change_percentage_24h;
+            const badge = document.getElementById("priceChangeBadge");
+            badge.textContent = `${change24h.toFixed(2)}%`;
+            badge.className = "badge ms-3 " + (change24h >= 0 ? "bg-success" : "bg-danger");
+
+            const infoBlocks = document.querySelector(".card-body").querySelectorAll(".mb-2");
+            infoBlocks[0].innerHTML = `Market Cap: <strong>$${(coin.market_cap.usd / 1e12).toFixed(2)}T</strong>`;
+            infoBlocks[1].innerHTML = `Volume (24h): <strong>$${(coin.total_volume.usd / 1e9).toFixed(2)}B</strong>`;
+            infoBlocks[2].innerHTML = `Circulating Supply: <strong>${coin.circulating_supply.toLocaleString()}</strong>`;
+        } catch (err) {
+            console.error("Error loading coin data:", err);
+        }
+    }
+
+    document.querySelectorAll(".list-group-item").forEach(link => {
+        link.addEventListener("click", (e) => {
+            e.preventDefault();
+            const coinId = link.getAttribute("data-id");
+            loadCoinData(coinId);
+
+            document.querySelectorAll(".list-group-item").forEach(l => l.classList.remove("active"));
+            link.classList.add("active");
+        });
+    });
+
+    document.querySelectorAll(".range-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            document.querySelectorAll(".range-btn").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+
+            const range = btn.getAttribute("data-range");
+            loadCoinData(currentCoin, range);
+        });
+    });
+
+    loadCoinData("bitcoin", "1d");
+</script>
