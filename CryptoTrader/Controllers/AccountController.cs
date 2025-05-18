@@ -68,13 +68,16 @@ namespace CryptoTrader.Controllers
             _context.Users.Add(newUser);
             await _context.SaveChangesAsync();
 
-            return RedirectToAction("Login");
+            HttpContext.Session.SetString("UserEmail", newUser.Email);
+            HttpContext.Session.SetInt32("UserId", newUser.Id);
+            return RedirectToAction("Index", "Home");
         }
 
+        [HttpGet]
         public IActionResult Logout()
         {
             HttpContext.Session.Clear();
-            return RedirectToAction("Login");
+            return RedirectToAction("Index", "Home");
         }
     }
 }

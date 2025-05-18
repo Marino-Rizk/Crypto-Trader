@@ -10,5 +10,7 @@ namespace CryptoTrader.Data
 
         public DbSet<User> Users { get; set; }
         public DbSet<CryptoTransaction> Transactions { get; set; }
+        public DbSet<PortfolioItem> Portfolios { get; set; }
+
     }
 }

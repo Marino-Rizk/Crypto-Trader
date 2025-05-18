@@ -3,6 +3,20 @@
 }
 
 <div class="container-fluid mt-4">
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
     <div class="row">
         <div class="col-md-3">
             <div class="list-group">
@@ -28,14 +42,13 @@
         <div class="col-md-9">
             <div class="card mb-4">
                 <div class="card-body">
-
                     <div class="d-flex align-items-center mb-3">
                         <img src="https://assets.coingecko.com/coins/images/1/large/bitcoin.png" alt="Bitcoin" width="40" class="me-3" />
                         <h4 class="mb-0">Bitcoin (BTC)</h4>
                         <span id="priceChangeBadge" class="badge ms-3">-1.27%</span>
                     </div>
 
-                    <h3>$96,254.24</h3>
+                    <h3 id="currentPrice">$96,254.24</h3>
 
                     <div class="mb-3" style="width:900px">
                         <canvas id="priceChart"></canvas>
@@ -52,15 +65,17 @@
                     <div class="mb-2">Volume (24h): <strong>$17.28B</strong></div>
                     <div class="mb-2">Circulating Supply: <strong>19.86M</strong></div>
 
-                    <form class="row g-2 mt-3">
+                    <form class="row g-2 mt-3" method="post" asp-action="Trade" id="tradeForm">
+                        <input type="hidden" name="CoinId" id="coinIdInput" />
                         <div class="col-auto">
-                            <input type="number" class="form-control" placeholder="Amount" min="0.0001" step="0.0001" />
+                            <input type="number" class="form-control" name="Amount" id="amountInput" placeholder="Amount" min="0.0001" step="0.0001" required />
+                            <div class="invalid-feedback" id="amountError"></div>
                         </div>
                         <div class="col-auto">
-                            <button type="submit" class="btn btn-success">Buy</button>
+                            <button name="type" value="buy" type="submit" class="btn btn-success" id="buyButton">Buy</button>
                         </div>
                         <div class="col-auto">
-                            <button type="submit" class="btn btn-danger">Sell</button>
+                            <button name="type" value="sell" type="submit" class="btn btn-danger" id="sellButton">Sell</button>
                         </div>
                     </form>
 
@@ -96,6 +111,7 @@
 
     let currentCoin = "bitcoin";
     let currentRange = "1d";
+    let currentPrice = 0;
 
     async function loadCoinData(coinId, range = "1d") {
         currentCoin = coinId;
@@ -125,7 +141,8 @@
             priceChart.update();
 
             document.querySelector("h4.mb-0").textContent = `${detailData.name} (${detailData.symbol.toUpperCase()})`;
-            document.querySelector("h3").textContent = `$${coin.current_price.usd.toLocaleString()}`;
+            currentPrice = coin.current_price.usd;
+            document.querySelector("h3").textContent = `$${currentPrice.toLocaleString()}`;
             document.querySelector("img").src = detailData.image.large;
 
             const change24h = coin.price_change_percentage_24h;
@@ -139,7 +156,18 @@
             infoBlocks[2].innerHTML = `Circulating Supply: <strong>${coin.circulating_supply.toLocaleString()}</strong>`;
         } catch (err) {
             console.error("Error loading coin data:", err);
+            showError("Error loading coin data. Please try again.");
         }
+    }
+
+    function showError(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        document.querySelector('.container-fluid').insertBefore(alertDiv, document.querySelector('.row'));
     }
 
     document.querySelectorAll(".list-group-item").forEach(link => {
@@ -161,6 +189,36 @@
             const range = btn.getAttribute("data-range");
             loadCoinData(currentCoin, range);
         });
+    });
+
+    document.getElementById('coinIdInput').value = currentCoin;
+
+    document.getElementById('tradeForm').addEventListener('submit', function(e) {
+        const amount = parseFloat(document.getElementById('amountInput').value);
+        const amountError = document.getElementById('amountError');
+        
+        if (isNaN(amount) || amount <= 0) {
+            e.preventDefault();
+            amountError.textContent = 'Please enter a valid amount greater than 0';
+            document.getElementById('amountInput').classList.add('is-invalid');
+            return;
+        }
+
+        const totalCost = amount * currentPrice;
+        const type = e.submitter.value;
+
+        if (type === 'buy' && totalCost > 1000000) { 
+            e.preventDefault();
+            amountError.textContent = 'Insufficient balance for this purchase';
+            document.getElementById('amountInput').classList.add('is-invalid');
+            return;
+        }
+
+        document.getElementById('amountInput').classList.remove('is-invalid');
+    });
+
+    document.getElementById('amountInput').addEventListener('input', function() {
+        this.classList.remove('is-invalid');
     });
 
     loadCoinData("bitcoin", "1d");
