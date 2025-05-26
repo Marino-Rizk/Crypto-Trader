@@ -47,6 +47,8 @@ public class HomeController : Controller
         }
 
         decimal price = await GetCurrentPrice(coinId);
+        _logger.LogInformation("Fetching price for: {CoinId}", coinId);
+
         if (price == 0)
         {
             TempData["Error"] = "Could not fetch current price";
@@ -112,14 +114,42 @@ public class HomeController : Controller
     {
         try
         {
+            _logger.LogInformation("Fetching price for coinId: {CoinId}", coinId);
             using var http = new HttpClient();
-            var res = await http.GetStringAsync($"https://api.coingecko.com/api/v3/simple/price?ids={coinId}&vs_currencies=usd");
+            var url = $"https://api.coingecko.com/api/v3/simple/price?ids={coinId}&vs_currencies=usd";
+            _logger.LogInformation("API URL: {Url}", url);
+            
+            await Task.Delay(100);
+            
+            var res = await http.GetStringAsync(url);
+            _logger.LogInformation("API Response: {Response}", res);
+            
             var json = JsonDocument.Parse(res);
-            return json.RootElement.GetProperty(coinId).GetProperty("usd").GetDecimal();
+            if (!json.RootElement.TryGetProperty(coinId, out var coinElement))
+            {
+                var errorMsg = $"Coin {coinId} not found in API response. Response: {res}";
+                _logger.LogError(errorMsg);
+                TempData["Error"] = errorMsg;
+                return 0;
+            }
+            
+            if (!coinElement.TryGetProperty("usd", out var priceElement))
+            {
+                var errorMsg = $"USD price not found for coin {coinId}. Response: {res}";
+                _logger.LogError(errorMsg);
+                TempData["Error"] = errorMsg;
+                return 0;
+            }
+            
+            var price = priceElement.GetDecimal();
+            _logger.LogInformation("Successfully got price {Price} for {CoinId}", price, coinId);
+            return price;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching price for {CoinId}", coinId);
+            var errorMsg = $"Error fetching price for {coinId}: {ex.Message}";
+            _logger.LogError(ex, errorMsg);
+            TempData["Error"] = errorMsg;
             return 0;
         }
     }

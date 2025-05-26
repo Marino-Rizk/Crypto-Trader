@@ -1,4 +1,5 @@
-﻿@{
+﻿@using CryptoTrader.Utils
+@{
     ViewData["Title"] = "Home";
 }
 
@@ -17,25 +18,16 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
+
     <div class="row">
         <div class="col-md-3">
             <div class="list-group">
                 <h5 class="mb-3">Top 15 Coins</h5>
-                <a href="#" class="list-group-item list-group-item-action" data-id="bitcoin" role="button">Bitcoin (BTC)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="ethereum" role="button">Ethereum (ETH)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="tether" role="button">Tether (USDT)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="binancecoin" role="button">BNB (BNB)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="usd-coin" role="button">USD Coin (USDC)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="ripple" role="button">XRP (XRP)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="cardano" role="button">Cardano (ADA)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="dogecoin" role="button">Dogecoin (DOGE)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="polygon" role="button">Polygon (MATIC)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="solana" role="button">Solana (SOL)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="polkadot" role="button">Polkadot (DOT)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="litecoin" role="button">Litecoin (LTC)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="shiba-inu" role="button">Shiba Inu (SHIB)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="chainlink" role="button">Chainlink (LINK)</a>
-                <a href="#" class="list-group-item list-group-item-action" data-id="uniswap" role="button">Uniswap (UNI)</a>
+                @* Dynamically load coin list *@
+                @foreach (var coin in CoinInfo.CoinNames)
+                {
+                    <a href="#" class="list-group-item list-group-item-action" data-id="@coin.Key" role="button">@coin.Value</a>
+                }
             </div>
         </div>
 
@@ -50,8 +42,8 @@
 
                     <h3 id="currentPrice">$96,254.24</h3>
 
-                    <div class="mb-3" style="width:900px">
-                        <canvas id="priceChart"></canvas>
+                    <div class="mb-3 overflow-auto">
+                        <canvas id="priceChart" style="min-width: 600px;"></canvas>
                     </div>
 
                     <div class="btn-group mb-3" role="group" aria-label="Chart Range">
@@ -72,10 +64,10 @@
                             <div class="invalid-feedback" id="amountError"></div>
                         </div>
                         <div class="col-auto">
-                            <button name="type" value="buy" type="submit" class="btn btn-success" id="buyButton">Buy</button>
+                            <button name="type" value="buy" type="submit" class="btn btn-success">Buy</button>
                         </div>
                         <div class="col-auto">
-                            <button name="type" value="sell" type="submit" class="btn btn-danger" id="sellButton">Sell</button>
+                            <button name="type" value="sell" type="submit" class="btn btn-danger">Sell</button>
                         </div>
                     </form>
 
@@ -116,6 +108,7 @@
     async function loadCoinData(coinId, range = "1d") {
         currentCoin = coinId;
         currentRange = range;
+        document.getElementById('coinIdInput').value = coinId;
 
         try {
             const marketChartUrl = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${range}`;
@@ -154,6 +147,10 @@
             infoBlocks[0].innerHTML = `Market Cap: <strong>$${(coin.market_cap.usd / 1e12).toFixed(2)}T</strong>`;
             infoBlocks[1].innerHTML = `Volume (24h): <strong>$${(coin.total_volume.usd / 1e9).toFixed(2)}B</strong>`;
             infoBlocks[2].innerHTML = `Circulating Supply: <strong>${coin.circulating_supply.toLocaleString()}</strong>`;
+
+            // Optional: Auto-refresh data every 60s
+            if (window.priceRefreshTimer) clearInterval(window.priceRefreshTimer);
+            window.priceRefreshTimer = setInterval(() => loadCoinData(currentCoin, currentRange), 60000);
         } catch (err) {
             console.error("Error loading coin data:", err);
             showError("Error loading coin data. Please try again.");
@@ -176,27 +173,33 @@
             const coinId = link.getAttribute("data-id");
             loadCoinData(coinId);
 
-            document.querySelectorAll(".list-group-item").forEach(l => l.classList.remove("active"));
+            document.querySelectorAll(".list-group-item").forEach(l => {
+                l.classList.remove("active");
+                l.removeAttribute("aria-current");
+            });
             link.classList.add("active");
+            link.setAttribute("aria-current", "true");
         });
     });
 
     document.querySelectorAll(".range-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
-            document.querySelectorAll(".range-btn").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll(".range-btn").forEach(b => {
+                b.classList.remove("active");
+                b.removeAttribute("aria-current");
+            });
             btn.classList.add("active");
+            btn.setAttribute("aria-current", "true");
 
             const range = btn.getAttribute("data-range");
             loadCoinData(currentCoin, range);
         });
     });
 
-    document.getElementById('coinIdInput').value = currentCoin;
-
     document.getElementById('tradeForm').addEventListener('submit', function(e) {
         const amount = parseFloat(document.getElementById('amountInput').value);
         const amountError = document.getElementById('amountError');
-        
+
         if (isNaN(amount) || amount <= 0) {
             e.preventDefault();
             amountError.textContent = 'Please enter a valid amount greater than 0';
@@ -204,22 +207,13 @@
             return;
         }
 
-        const totalCost = amount * currentPrice;
-        const type = e.submitter.value;
-
-        if (type === 'buy' && totalCost > 1000000) { 
-            e.preventDefault();
-            amountError.textContent = 'Insufficient balance for this purchase';
-            document.getElementById('amountInput').classList.add('is-invalid');
-            return;
-        }
-
         document.getElementById('amountInput').classList.remove('is-invalid');
     });
 
-    document.getElementById('amountInput').addEventListener('input', function() {
+    document.getElementById('amountInput').addEventListener('input', function () {
         this.classList.remove('is-invalid');
     });
 
+    document.querySelector('.range-btn[data-range="1d"]').classList.add("active");
     loadCoinData("bitcoin", "1d");
 </script>
